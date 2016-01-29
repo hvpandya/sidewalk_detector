@@ -19,6 +19,8 @@ where (3) outputs a point cloud which contains the subset of points from the poi
 
 # Approach 
 
+###TIP: since the bagfile does not have tf, a static_transform_publisher with a tf between fixed_frame and camera_depth_optical_frame (z=21", roll=1.57 rad) helps visualizing the pcl in rviz.
+
 Assumption: the area immediately in front of the SENSOR is a sidewalk area (obstacles present in this area can be easily factored out using depth data but the sensor has to be primarily on sidewalk and not road)
 
 ### PCL

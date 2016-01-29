@@ -18,6 +18,7 @@ Using static_tf_publisher with "map" fixed frame
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/filters/passthrough.h>
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
@@ -31,7 +32,7 @@ class SideWalkDetector
   image_transport::Subscriber rgb_sub_, depth_sub_;
   image_transport::Publisher rgb_pub_, depth_pub_;
   ros::Subscriber point_sub_;
-  ros::Publisher in_point_pub_, out_point_pub_;
+  ros::Publisher in_point_pub_, out_point_pub_, filter_point_pub_;
 
 public:
   SideWalkDetector()
@@ -47,6 +48,8 @@ public:
     depth_pub_ = it_.advertise("/sidewalk_detector/depth/image_raw", 1);    
     in_point_pub_= nh_.advertise<sensor_msgs::PointCloud2>("/sidewalk_detector/depth/points_in", 1);
     out_point_pub_= nh_.advertise<sensor_msgs::PointCloud2>("/sidewalk_detector/depth/points_out", 1);
+    filter_point_pub_= nh_.advertise<sensor_msgs::PointCloud2>("/sidewalk_detector/depth/points_filtered", 1);
+    
 
   }
   
@@ -108,40 +111,53 @@ public:
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in (new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out (new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZ>);
     sensor_msgs::PointCloud2::Ptr point_in (new sensor_msgs::PointCloud2);
     sensor_msgs::PointCloud2::Ptr point_out (new sensor_msgs::PointCloud2);
+    sensor_msgs::PointCloud2::Ptr point_filter (new sensor_msgs::PointCloud2);
     pcl::fromROSMsg (*msg, *cloud);
 
-  
+    //filter out points much above ground
+    pcl::PassThrough<pcl::PointXYZ> pass;
+    pass.setInputCloud (cloud);
+    pass.setFilterFieldName ("y");
+    pass.setFilterLimits (-1.0, -0.3);
+    pass.filter (*cloud_filtered);
+    pcl::toROSMsg (*cloud_filtered, *point_filter);
+    pass.setFilterLimitsNegative (true);
+    pass.filter (*cloud);
+
+    //RANSAC plane segmentation
     pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-    // Create the segmentation object
     pcl::SACSegmentation<pcl::PointXYZ> seg;
     seg.setOptimizeCoefficients (true);
     seg.setModelType(pcl::SACMODEL_PLANE);
     seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold (0.01);
+    seg.setDistanceThreshold (0.05);
 
-    seg.setInputCloud(cloud);
+    seg.setInputCloud(cloud_filtered);
     seg.segment (*inliers, *coefficients);
 
     //Extract inliers from the input cloud
     pcl::ExtractIndices<pcl::PointXYZ> extract;
-    extract.setInputCloud(cloud);
+    extract.setInputCloud(cloud_filtered);
     extract.setIndices(inliers);
     extract.setNegative(false);
     extract.filter(*cloud_in);
 
-    //Get the points associated with the planar surface
-    std::cout<<"Number of points in plane: "<<cloud_in->points.size ()<< std::endl;
+    //Get the number of points associated with the planar surface
+    //std::cout<<"Number of points in plane: "<<cloud_in->points.size ()<< std::endl;
 
     //Extract outliers from the output cloud
     extract.setNegative (true);
     extract.filter(*cloud_out);
+    *cloud_out+=*cloud;
     pcl::toROSMsg (*cloud_in, *point_in);
     pcl::toROSMsg (*cloud_out, *point_out);
   
     //Publish output point cloud streams
+    //filter_point_pub_.publish(point_filter);
     in_point_pub_.publish(point_in);
     out_point_pub_.publish(point_out);
  

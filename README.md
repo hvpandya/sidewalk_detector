@@ -23,10 +23,8 @@ Assumption: the area immediately in front of the SENSOR is a sidewalk area (obst
 
 ### PCL
 
-Preprocess the input point cloud by filtering out the outliers. Select a subset of points near the sensor and use RANSAC plane fitting to determine the plane of sidewalk.
+Preprocess the input point cloud by filtering out the obvious outliers. Select a subset of points near the ground and use RANSAC plane fitting to determine the plane of sidewalk.
 Determine and filter out the outliers from original PCL by testing against the obtained plane.
-
-#### PCL TODO: find a way to separate road points from sidewalk points (both fit same plane) 
 
 ### Color
 

@@ -136,7 +136,7 @@ add_executable(sidewalk_detector src/sidewalk_detector.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(sidewalk_detector ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(sidewalk_detector ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(sidewalk_detector
@@ -190,3 +190,20 @@ target_link_libraries(sidewalk_detector
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+if(CATKIN_ENABLE_TESTING)
+  find_package(GTest REQUIRED)
+  catkin_add_gtest(sidewalk_detector_tests
+    test/test_pcl_processing.cpp
+    test/test_image_processing.cpp
+    # Add other test files here if any
+  )
+  # Link against the main executable if you need to test its components directly
+  # Or link against specific libraries if you have them
+  target_link_libraries(sidewalk_detector_tests
+    ${catkin_LIBRARIES}
+    ${OpenCV_LIBRARIES}
+    ${PCL_LIBRARIES}
+    # sidewalk_detector # Uncomment if you need to link against the main executable
+  )
+endif()
